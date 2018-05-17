@@ -51,6 +51,10 @@ target_compile_definitions (${PROJECT_NAME}
 	PRIVATE -DBINARY_PREFIX="TSUP"
 )
 
+set_source_files_properties(src/rpmb.c
+	PROPERTIES COMPILE_FLAGS -Wno-error=implicit-fallthrough
+)
+
 ################################################################################
 # Optional flags
 ################################################################################
