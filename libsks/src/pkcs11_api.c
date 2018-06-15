@@ -4,6 +4,7 @@
  */
 
 #include <pkcs11.h>
+#include "invoke_ta.h"
 #include "local_utils.h"
 
 static int lib_inited;
@@ -107,6 +108,8 @@ CK_RV C_Finalize(CK_VOID_PTR res)
 
 	if (!lib_inited)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
+
+	sks_invoke_terminate();
 
 	lib_inited = 0;
 
