@@ -3,9 +3,13 @@
  * Copyright (c) 2017-2018, Linaro Limited
  */
 
+#include <assert.h>
 #include <pkcs11.h>
+#include <stdlib.h>
+
 #include "invoke_ta.h"
 #include "local_utils.h"
+#include "pkcs11_token.h"
 
 static int lib_inited;
 
@@ -15,13 +19,13 @@ static int lib_inited;
 static const CK_FUNCTION_LIST libsks_function_list = {
 	REGISTER_CK_FUNCTION(C_Initialize),
 	REGISTER_CK_FUNCTION(C_Finalize),
-	DO_NOT_REGISTER_CK_FUNCTION(C_GetInfo),
+	REGISTER_CK_FUNCTION(C_GetInfo),
 	REGISTER_CK_FUNCTION(C_GetFunctionList),
-	DO_NOT_REGISTER_CK_FUNCTION(C_GetSlotList),
-	DO_NOT_REGISTER_CK_FUNCTION(C_GetSlotInfo),
-	DO_NOT_REGISTER_CK_FUNCTION(C_GetTokenInfo),
-	DO_NOT_REGISTER_CK_FUNCTION(C_GetMechanismList),
-	DO_NOT_REGISTER_CK_FUNCTION(C_GetMechanismInfo),
+	REGISTER_CK_FUNCTION(C_GetSlotList),
+	REGISTER_CK_FUNCTION(C_GetSlotInfo),
+	REGISTER_CK_FUNCTION(C_GetTokenInfo),
+	REGISTER_CK_FUNCTION(C_GetMechanismList),
+	REGISTER_CK_FUNCTION(C_GetMechanismInfo),
 	DO_NOT_REGISTER_CK_FUNCTION(C_InitToken),
 	DO_NOT_REGISTER_CK_FUNCTION(C_InitPIN),
 	DO_NOT_REGISTER_CK_FUNCTION(C_SetPIN),
@@ -118,12 +122,13 @@ CK_RV C_Finalize(CK_VOID_PTR res)
 
 CK_RV C_GetInfo(CK_INFO_PTR info)
 {
-	(void)info;
-
 	if (!lib_inited)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	if (!info)
+		return CKR_ARGUMENTS_BAD;
+
+	return sks_ck_get_info(info);
 }
 
 CK_RV C_GetFunctionList(CK_FUNCTION_LIST_PTR_PTR ppFunctionList)
@@ -141,26 +146,54 @@ CK_RV C_GetSlotList(CK_BBOOL token_present,
 		    CK_SLOT_ID_PTR slots,
 		    CK_ULONG_PTR count)
 {
-	(void)token_present;
-	(void)slots;
-	(void)count;
+	CK_RV rv;
 
 	if (!lib_inited)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	rv = sks_ck_slot_get_list(token_present, slots, count);
+
+	switch (rv) {
+	case CKR_ARGUMENTS_BAD:
+	case CKR_BUFFER_TOO_SMALL:
+	case CKR_CRYPTOKI_NOT_INITIALIZED:
+	case CKR_FUNCTION_FAILED:
+	case CKR_GENERAL_ERROR:
+	case CKR_HOST_MEMORY:
+	case CKR_OK:
+		break;
+	default:
+		assert(!rv);
+	}
+
+	return rv;
 }
 
 CK_RV C_GetSlotInfo(CK_SLOT_ID slot,
 		    CK_SLOT_INFO_PTR info)
 {
-	(void)slot;
-	(void)info;
+	CK_RV rv;
 
 	if (!lib_inited)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	rv = sks_ck_slot_get_info(slot, info);
+
+	switch (rv) {
+	case CKR_ARGUMENTS_BAD:
+	case CKR_CRYPTOKI_NOT_INITIALIZED:
+	case CKR_DEVICE_ERROR:
+	case CKR_FUNCTION_FAILED:
+	case CKR_GENERAL_ERROR:
+	case CKR_HOST_MEMORY:
+	case CKR_OK:
+	case CKR_SLOT_ID_INVALID:
+		break;
+	default:
+		assert(!rv);
+	}
+
+	return rv;
 }
 
 CK_RV C_InitToken(CK_SLOT_ID slot,
@@ -182,41 +215,98 @@ CK_RV C_InitToken(CK_SLOT_ID slot,
 CK_RV C_GetTokenInfo(CK_SLOT_ID slot,
 		     CK_TOKEN_INFO_PTR info)
 {
-	(void)slot;
-	(void)info;
+	CK_RV rv;
 
 	if (!lib_inited)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	rv = sks_ck_token_get_info(slot, info);
+
+	switch (rv) {
+	case CKR_CRYPTOKI_NOT_INITIALIZED:
+	case CKR_DEVICE_ERROR:
+	case CKR_DEVICE_MEMORY:
+	case CKR_DEVICE_REMOVED:
+	case CKR_FUNCTION_FAILED:
+	case CKR_GENERAL_ERROR:
+	case CKR_HOST_MEMORY:
+	case CKR_OK:
+	case CKR_SLOT_ID_INVALID:
+	case CKR_TOKEN_NOT_PRESENT:
+	case CKR_TOKEN_NOT_RECOGNIZED:
+	case CKR_ARGUMENTS_BAD:
+		break;
+	default:
+		assert(!rv);
+	}
+
+	return rv;
 }
 
 CK_RV C_GetMechanismList(CK_SLOT_ID slot,
 			 CK_MECHANISM_TYPE_PTR mechanisms,
 			 CK_ULONG_PTR count)
 {
-	(void)slot;
-	(void)mechanisms;
-	(void)count;
+	CK_RV rv;
 
 	if (!lib_inited)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	rv = sks_ck_token_mechanism_ids(slot, mechanisms, count);
+
+	switch (rv) {
+	case CKR_BUFFER_TOO_SMALL:
+	case CKR_CRYPTOKI_NOT_INITIALIZED:
+	case CKR_DEVICE_ERROR:
+	case CKR_DEVICE_MEMORY:
+	case CKR_DEVICE_REMOVED:
+	case CKR_FUNCTION_FAILED:
+	case CKR_GENERAL_ERROR:
+	case CKR_HOST_MEMORY:
+	case CKR_OK:
+	case CKR_SLOT_ID_INVALID:
+	case CKR_TOKEN_NOT_PRESENT:
+	case CKR_TOKEN_NOT_RECOGNIZED:
+	case CKR_ARGUMENTS_BAD:
+		break;
+	default:
+		assert(!rv);
+	}
+
+	return rv;
 }
 
 CK_RV C_GetMechanismInfo(CK_SLOT_ID slot,
 			 CK_MECHANISM_TYPE type,
 			 CK_MECHANISM_INFO_PTR info)
 {
-	(void)slot;
-	(void)type;
-	(void)info;
+	CK_RV rv;
 
 	if (!lib_inited)
 		return CKR_CRYPTOKI_NOT_INITIALIZED;
 
-	return CKR_FUNCTION_NOT_SUPPORTED;
+	rv = sks_ck_token_mechanism_info(slot, type, info);
+
+	switch (rv) {
+	case CKR_CRYPTOKI_NOT_INITIALIZED:
+	case CKR_DEVICE_ERROR:
+	case CKR_DEVICE_MEMORY:
+	case CKR_DEVICE_REMOVED:
+	case CKR_FUNCTION_FAILED:
+	case CKR_GENERAL_ERROR:
+	case CKR_HOST_MEMORY:
+	case CKR_MECHANISM_INVALID:
+	case CKR_OK:
+	case CKR_SLOT_ID_INVALID:
+	case CKR_TOKEN_NOT_PRESENT:
+	case CKR_TOKEN_NOT_RECOGNIZED:
+	case CKR_ARGUMENTS_BAD:
+		break;
+	default:
+		assert(!rv);
+	}
+
+	return rv;
 }
 
 CK_RV C_OpenSession(CK_SLOT_ID slot,
